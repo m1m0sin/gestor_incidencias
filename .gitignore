@@ -5,3 +5,6 @@ __pycache__/
 .env
 .vscode/
 /build/
+
+# Entorno virtual de Python
+venv/
