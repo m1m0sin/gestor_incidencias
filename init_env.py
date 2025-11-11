@@ -2,8 +2,8 @@ import os
 import subprocess
 import sys
 
-VENV_DIR="venv"
-REQ_FILE="requirements.txt"
+VENV_DIR = "venv"
+REQ_FILE = "requirements.txt"
 
 # Crear entorno virtual si no existe
 if not os.path.exists(VENV_DIR):

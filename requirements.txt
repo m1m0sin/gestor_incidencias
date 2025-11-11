@@ -28,3 +28,5 @@ uvloop
 watchfiles
 websockets
 httpx
+black
+flake8
