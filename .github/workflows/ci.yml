@@ -77,7 +77,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          pytest --max-fail=1 --disable-warnings --cov=.
+          pytest --disable-warnings --cov=.
       
       - name: Upload test results
         if: always()
