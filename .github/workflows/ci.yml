@@ -10,13 +10,13 @@ jobs:
       contents: read
       security-events: write
     steps:
-      -name: checkout repository
+      - name: checkout repository
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
 
-      -name: Autobuild
+      - name: Autobuild
         uses: github/codeql-action/autobuild@v2
 
       - name: Perform CodeQL Analysis
@@ -28,7 +28,7 @@ jobs:
     name: Code styling & Quality analysis
     runs-on: ubuntu-latest
     steps:
-      -name: checkout repository
+      - name: checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [codeql-analysis, linting]
     steps:
-      -name: checkout repository
+      - name: checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
