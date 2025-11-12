@@ -22,17 +22,18 @@ jobs:
           BEFORE_SHA="${{ github.event.before }}"
           AFTER_SHA="${{ github.sha }}"
           EVENT_NAME="${{ github.event_name }}"
+          BASE_REF="${{ github.base_ref }}"   # rama base del PR (por ejemplo 'develop' o 'main')
 
-          # Determinar commits a validar
+          git fetch origin +refs/heads/*:refs/remotes/origin/*
+
           if [ "$EVENT_NAME" = "push" ]; then
             if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-              echo "ℹ️ First push or new branch detected, validating only latest commit."
               commits=$(git log -1 --pretty=format:"%s")
             else
               commits=$(git log "$BEFORE_SHA".."$AFTER_SHA" --pretty=format:"%s")
             fi
           else
-            commits=$(git log origin/..HEAD --pretty=format:"%s")
+            commits=$(git log "origin/$BASE_REF"..HEAD --pretty=format:"%s")
           fi
 
           if [ -z "$commits" ]; then
@@ -41,10 +42,14 @@ jobs:
           fi
 
           echo "$commits" | while read -r message; do
+            # 🟡 Ignorar merges automáticos de GitHub
+            if [[ "$message" =~ ^Merge ]]; then
+              echo "⚠️ Skipping merge commit: \"$message\""
+              continue
+            fi
+
             if ! echo "$message" | grep -Pq '^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(\([^)]{0,10}\))?:\s?.{5,60})$'; then
               echo "❌ Commit message invalid: \"$message\""
-              echo "Pattern required:"
-              echo "(?ms)^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(?:\\b\\([^)]{0,10}\\))?:\\s?(.{5,60}))$"
               exit 1
             else
               echo "✅ Valid: \"$message\""
