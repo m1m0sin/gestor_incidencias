@@ -12,3 +12,8 @@ configuración básica de CI (GitHub Actions), y pruebas iniciales.
 - .github/workflows/ci.yml: workflow CI básico
 - requirements.txt: dependencias Python
 - .pre-commit-config.yaml: hooks recomendados
+
+## Instalar dependencias
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
