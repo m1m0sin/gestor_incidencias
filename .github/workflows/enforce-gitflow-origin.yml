@@ -1,0 +1,69 @@
+name: Enforce GitFlow Branch Origins
+
+on:
+  create:
+    branches:
+      - '*'  # Se ejecuta cuando se crea cualquier rama
+
+jobs:
+  validate-origin:
+    name: Validate Branch Origin According to GitFlow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para obtener toda la historia y referencias
+
+      - name: Get branch info
+        id: info
+        run: |
+          echo "🔍 Branch created: $GITHUB_REF"
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+
+          # Asegurar referencias remotas
+          git fetch origin main develop release/* || true
+
+          # Detectar base de la rama creada
+          BASE_BRANCH=""
+          if git merge-base --is-ancestor origin/develop HEAD 2>/dev/null; then
+            BASE_BRANCH="develop"
+          elif git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
+            BASE_BRANCH="main"
+          elif git branch -r | grep -q 'origin/release'; then
+            BASE_BRANCH="release"
+          fi
+
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "base=$BASE_BRANCH" >> $GITHUB_OUTPUT
+          echo "Detected base: $BASE_BRANCH"
+
+      - name: Enforce GitFlow origin rules
+        run: |
+          BRANCH="${{ steps.info.outputs.branch }}"
+          BASE="${{ steps.info.outputs.base }}"
+
+          echo "🧩 Validating origin for $BRANCH (from $BASE)"
+
+          # Reglas de GitFlow
+          if [[ "$BRANCH" =~ ^feature- ]] && [ "$BASE" != "develop" ]; then
+            echo "❌ Feature branches must be created from 'develop'"
+            exit 1
+          fi
+
+          if [[ "$BRANCH" =~ ^release- ]] && [ "$BASE" != "develop" ]; then
+            echo "❌ Release branches must be created from 'develop'"
+            exit 1
+          fi
+
+          if [[ "$BRANCH" =~ ^bugfix- ]] && [ "$BASE" != "release" ]; then
+            echo "❌ Bugfix branches must be created from 'release'"
+            exit 1
+          fi
+
+          if [[ "$BRANCH" =~ ^hotfix- ]] && [ "$BASE" != "main" ]; then
+            echo "❌ Hotfix branches must be created from 'main'"
+            exit 1
+          fi
+
+          echo "✅ Branch origin is valid according to GitFlow."
