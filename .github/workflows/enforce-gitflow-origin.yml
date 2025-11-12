@@ -1,0 +1,61 @@
+name: Enforce GitFlow Branch Origins
+
+on:
+  create:        # Se dispara cuando se crea una nueva rama
+    branches:
+      - '*'      # Todas las ramas
+
+jobs:
+  validate-origin:
+    name: Validate Branch Origin According to GitFlow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get branch info
+        id: info
+        run: |
+          echo "🔍 Branch created: $GITHUB_REF"
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+
+          # Buscar la base (rama desde la que se creó) comparando con develop y main
+          git fetch --depth=2 origin main develop || true
+
+          BASE_BRANCH=""
+          if git merge-base --is-ancestor origin/develop HEAD 2>/dev/null; then
+            BASE_BRANCH="develop"
+          elif git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
+            BASE_BRANCH="main"
+          fi
+
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "base=$BASE_BRANCH" >> $GITHUB_OUTPUT
+          echo "Detected base: $BASE_BRANCH"
+
+      - name: Enforce GitFlow origin rules
+        run: |
+          BRANCH="${{ steps.info.outputs.branch }}"
+          BASE="${{ steps.info.outputs.base }}"
+
+          echo "🧩 Validating origin for $BRANCH (from $BASE)"
+
+          # Definición de reglas GitFlow
+          if [[ "$BRANCH" =~ ^feature- ]] && [ "$BASE" != "develop" ]; then
+            echo "❌ Feature branches must be created from 'develop'"
+            exit 1
+          fi
+
+          if [[ "$BRANCH" =~ ^release- ]] && [ "$BASE" != "develop" ]; then
+            echo "❌ Release branches must be created from 'develop'"
+            exit 1
+          fi
+
+          if [[ "$BRANCH" =~ ^bugfix- ]] && [ "$BASE" != "release" ]; then
+            echo "❌ Bugfix branches must be created from 'release'"
+            exit 1
+          fi
+
+          if [[ "$BRANCH" =~ ^hotfix- ]] && [ "$BASE" != "main" ]; then
+            echo "❌ Hotfix branches must be created from 'main'"
+            exit 1
+          fi
+
+          echo "✅ Branch origin is valid according to GitFlow."

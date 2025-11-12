@@ -1,0 +1,39 @@
+name: Validate Commit Messages
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-commits:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          echo "🔍 Validating commit messages..."
+
+          # Obtener commits del evento actual
+          if [ "${{ github.event_name }}" = "push" ]; then
+            commits=$(git log ${{ github.event.before }}..${{ github.event.after }} --pretty=format:"%s")
+          else
+            commits=$(git log origin/${{ github.event.pull_request.base.ref }}..HEAD --pretty=format:"%s")
+          fi
+
+          echo "$commits" | while read -r message; do
+            if [[ ! "$message" =~ ^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(\([^)]{0,10}\))?:\s?.{5,60})$ ]]; then
+              echo "❌ Commit message invalid: \"$message\""
+              echo "Pattern required:"
+              echo "(?ms)^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(?:\\b\\([^)]{0,10}\\))?:\\s?(.{5,60}))$"
+              exit 1
+            else
+              echo "✅ Valid: \"$message\""
+            fi
+          done
+
+          echo "🎉 All commit messages are valid!"
