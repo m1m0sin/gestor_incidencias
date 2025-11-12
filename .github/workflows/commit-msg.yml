@@ -6,7 +6,6 @@ on:
 
 jobs:
   validate-commits:
-    name: Validate Commit Messages
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -22,6 +21,10 @@ jobs:
           BEFORE_SHA="${{ github.event.before }}"
           AFTER_SHA="${{ github.sha }}"
           EVENT_NAME="${{ github.event_name }}"
+          BASE_REF="${{ github.base_ref }}"   # rama base del PR (por ejemplo 'develop' o 'main')
+
+          # Traer todas las referencias del remoto (importante para PR)
+          git fetch origin +refs/heads/*:refs/remotes/origin/*
 
           # Determinar commits a validar
           if [ "$EVENT_NAME" = "push" ]; then
@@ -32,7 +35,8 @@ jobs:
               commits=$(git log "$BEFORE_SHA".."$AFTER_SHA" --pretty=format:"%s")
             fi
           else
-            commits=$(git log origin/..HEAD --pretty=format:"%s")
+            echo "🔍 Pull request detected, comparing HEAD with base branch: $BASE_REF"
+            commits=$(git log "origin/$BASE_REF"..HEAD --pretty=format:"%s")
           fi
 
           if [ -z "$commits" ]; then
