@@ -1,43 +1,59 @@
-- name: Validate commit messages
-  shell: bash
-  run: |
-    echo "🔍 Validating commit messages..."
+name: Validate Commit Messages
 
-    BEFORE_SHA="${{ github.event.before }}"
-    AFTER_SHA="${{ github.sha }}"
-    EVENT_NAME="${{ github.event_name }}"
-    BASE_REF="${{ github.base_ref }}"   # rama base del PR (por ejemplo 'develop' o 'main')
+on:
+  push:
+  pull_request:
 
-    git fetch origin +refs/heads/*:refs/remotes/origin/*
+jobs:
+  validate-commits:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    if [ "$EVENT_NAME" = "push" ]; then
-      if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-        commits=$(git log -1 --pretty=format:"%s")
-      else
-        commits=$(git log "$BEFORE_SHA".."$AFTER_SHA" --pretty=format:"%s")
-      fi
-    else
-      commits=$(git log "origin/$BASE_REF"..HEAD --pretty=format:"%s")
-    fi
+      - name: Validate commit messages
+        shell: bash
+        run: |
+          echo "🔍 Validating commit messages..."
 
-    if [ -z "$commits" ]; then
-      echo "⚠️ No commits found to validate."
-      exit 0
-    fi
+          BEFORE_SHA="${{ github.event.before }}"
+          AFTER_SHA="${{ github.sha }}"
+          EVENT_NAME="${{ github.event_name }}"
+          BASE_REF="${{ github.base_ref }}"   # rama base del PR (por ejemplo 'develop' o 'main')
 
-    echo "$commits" | while read -r message; do
-      # 🟡 Ignorar merges automáticos de GitHub
-      if [[ "$message" =~ ^Merge ]]; then
-        echo "⚠️ Skipping merge commit: \"$message\""
-        continue
-      fi
+          git fetch origin +refs/heads/*:refs/remotes/origin/*
 
-      if ! echo "$message" | grep -Pq '^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(\([^)]{0,10}\))?:\s?.{5,60})$'; then
-        echo "❌ Commit message invalid: \"$message\""
-        exit 1
-      else
-        echo "✅ Valid: \"$message\""
-      fi
-    done
+          if [ "$EVENT_NAME" = "push" ]; then
+            if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+              commits=$(git log -1 --pretty=format:"%s")
+            else
+              commits=$(git log "$BEFORE_SHA".."$AFTER_SHA" --pretty=format:"%s")
+            fi
+          else
+            commits=$(git log "origin/$BASE_REF"..HEAD --pretty=format:"%s")
+          fi
 
-    echo "🎉 All commit messages are valid!"
+          if [ -z "$commits" ]; then
+            echo "⚠️ No commits found to validate."
+            exit 0
+          fi
+
+          echo "$commits" | while read -r message; do
+            # 🟡 Ignorar merges automáticos de GitHub
+            if [[ "$message" =~ ^Merge ]]; then
+              echo "⚠️ Skipping merge commit: \"$message\""
+              continue
+            fi
+
+            if ! echo "$message" | grep -Pq '^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(\([^)]{0,10}\))?:\s?.{5,60})$'; then
+              echo "❌ Commit message invalid: \"$message\""
+              exit 1
+            else
+              echo "✅ Valid: \"$message\""
+            fi
+          done
+
+          echo "🎉 All commit messages are valid!"
