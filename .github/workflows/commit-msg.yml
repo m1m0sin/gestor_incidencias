@@ -1,58 +1,43 @@
-name: Validate Commit Messages
+- name: Validate commit messages
+  shell: bash
+  run: |
+    echo "🔍 Validating commit messages..."
 
-on:
-  push:
-  pull_request:
+    BEFORE_SHA="${{ github.event.before }}"
+    AFTER_SHA="${{ github.sha }}"
+    EVENT_NAME="${{ github.event_name }}"
+    BASE_REF="${{ github.base_ref }}"   # rama base del PR (por ejemplo 'develop' o 'main')
 
-jobs:
-  validate-commits:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    git fetch origin +refs/heads/*:refs/remotes/origin/*
 
-      - name: Validate commit messages
-        shell: bash
-        run: |
-          echo "🔍 Validating commit messages..."
+    if [ "$EVENT_NAME" = "push" ]; then
+      if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+        commits=$(git log -1 --pretty=format:"%s")
+      else
+        commits=$(git log "$BEFORE_SHA".."$AFTER_SHA" --pretty=format:"%s")
+      fi
+    else
+      commits=$(git log "origin/$BASE_REF"..HEAD --pretty=format:"%s")
+    fi
 
-          BEFORE_SHA="${{ github.event.before }}"
-          AFTER_SHA="${{ github.sha }}"
-          EVENT_NAME="${{ github.event_name }}"
-          BASE_REF="${{ github.base_ref }}"   # rama base del PR (por ejemplo 'develop' o 'main')
+    if [ -z "$commits" ]; then
+      echo "⚠️ No commits found to validate."
+      exit 0
+    fi
 
-          # Traer todas las referencias del remoto (importante para PR)
-          git fetch origin +refs/heads/*:refs/remotes/origin/*
+    echo "$commits" | while read -r message; do
+      # 🟡 Ignorar merges automáticos de GitHub
+      if [[ "$message" =~ ^Merge ]]; then
+        echo "⚠️ Skipping merge commit: \"$message\""
+        continue
+      fi
 
-          # Determinar commits a validar
-          if [ "$EVENT_NAME" = "push" ]; then
-            if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-              echo "ℹ️ First push or new branch detected, validating only latest commit."
-              commits=$(git log -1 --pretty=format:"%s")
-            else
-              commits=$(git log "$BEFORE_SHA".."$AFTER_SHA" --pretty=format:"%s")
-            fi
-          else
-            echo "🔍 Pull request detected, comparing HEAD with base branch: $BASE_REF"
-            commits=$(git log "origin/$BASE_REF"..HEAD --pretty=format:"%s")
-          fi
+      if ! echo "$message" | grep -Pq '^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(\([^)]{0,10}\))?:\s?.{5,60})$'; then
+        echo "❌ Commit message invalid: \"$message\""
+        exit 1
+      else
+        echo "✅ Valid: \"$message\""
+      fi
+    done
 
-          if [ -z "$commits" ]; then
-            echo "⚠️ No commits found to validate."
-            exit 0
-          fi
-
-          echo "$commits" | while read -r message; do
-            if ! echo "$message" | grep -Pq '^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(\([^)]{0,10}\))?:\s?.{5,60})$'; then
-              echo "❌ Commit message invalid: \"$message\""
-              echo "Pattern required:"
-              echo "(?ms)^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(?:\\b\\([^)]{0,10}\\))?:\\s?(.{5,60}))$"
-              exit 1
-            else
-              echo "✅ Valid: \"$message\""
-            fi
-          done
-
-          echo "🎉 All commit messages are valid!"
+    echo "🎉 All commit messages are valid!"
