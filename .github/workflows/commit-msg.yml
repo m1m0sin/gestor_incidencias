@@ -1,0 +1,54 @@
+name: Validate Commit Messages
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-commits:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        shell: bash
+        run: |
+          echo "🔍 Validating commit messages..."
+
+          BEFORE_SHA="${{ github.event.before }}"
+          AFTER_SHA="${{ github.sha }}"
+          EVENT_NAME="${{ github.event_name }}"
+
+          # Determinar commits a validar
+          if [ "$EVENT_NAME" = "push" ]; then
+            if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+              echo "ℹ️ First push or new branch detected, validating only latest commit."
+              commits=$(git log -1 --pretty=format:"%s")
+            else
+              commits=$(git log "$BEFORE_SHA".."$AFTER_SHA" --pretty=format:"%s")
+            fi
+          else
+            commits=$(git log origin/..HEAD --pretty=format:"%s")
+          fi
+
+          if [ -z "$commits" ]; then
+            echo "⚠️ No commits found to validate."
+            exit 0
+          fi
+
+          echo "$commits" | while read -r message; do
+            if ! echo "$message" | grep -Pq '^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(\([^)]{0,10}\))?:\s?.{5,60})$'; then
+              echo "❌ Commit message invalid: \"$message\""
+              echo "Pattern required:"
+              echo "(?ms)^(?:(?:((?:AB#[0-9]{1,6}(?:,\s?AB#[0-9]{1,6}\s?)*))-\s?)?(feat|fix|style|build|ci|refactor|test|doc|revert)(?:\\b\\([^)]{0,10}\\))?:\\s?(.{5,60}))$"
+              exit 1
+            else
+              echo "✅ Valid: \"$message\""
+            fi
+          done
+
+          echo "🎉 All commit messages are valid!"
