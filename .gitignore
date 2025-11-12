@@ -1,7 +1,7 @@
-.venv/
+#Entorno virtual de python
 __pycache__/
 *.pyc
 .pytest_cache/
 .env
-.vscode/
 /build/
+venv/
