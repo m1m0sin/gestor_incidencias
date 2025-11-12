@@ -1,29 +1,37 @@
 name: Enforce GitFlow Branch Origins
 
 on:
-  create:        # Se dispara cuando se crea una nueva rama
+  create:
     branches:
-      - '*'      # Todas las ramas
+      - '*'  # Se ejecuta cuando se crea cualquier rama
 
 jobs:
   validate-origin:
     name: Validate Branch Origin According to GitFlow
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para obtener toda la historia y referencias
+
       - name: Get branch info
         id: info
         run: |
           echo "🔍 Branch created: $GITHUB_REF"
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
 
-          # Buscar la base (rama desde la que se creó) comparando con develop y main
-          git fetch --depth=2 origin main develop || true
+          # Asegurar referencias remotas
+          git fetch origin main develop release/* || true
 
+          # Detectar base de la rama creada
           BASE_BRANCH=""
           if git merge-base --is-ancestor origin/develop HEAD 2>/dev/null; then
             BASE_BRANCH="develop"
           elif git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
             BASE_BRANCH="main"
+          elif git branch -r | grep -q 'origin/release'; then
+            BASE_BRANCH="release"
           fi
 
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
@@ -37,7 +45,7 @@ jobs:
 
           echo "🧩 Validating origin for $BRANCH (from $BASE)"
 
-          # Definición de reglas GitFlow
+          # Reglas de GitFlow
           if [[ "$BRANCH" =~ ^feature- ]] && [ "$BASE" != "develop" ]; then
             echo "❌ Feature branches must be created from 'develop'"
             exit 1
